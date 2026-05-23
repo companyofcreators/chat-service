@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 
 	domain "github.com/companyofcreators/chat-service/internal/domain/chat"
 )
@@ -268,4 +269,82 @@ func (r *MessageRepo) GetLastMessage(ctx context.Context, chatID uuid.UUID) (*do
 	}
 
 	return m, nil
+}
+
+// GetLastMessages fetches the latest message for each of the given chat IDs
+// in a single query, avoiding N+1 round-trips.
+func (r *MessageRepo) GetLastMessages(ctx context.Context, chatIDs []uuid.UUID) (map[uuid.UUID]*domain.Message, error) {
+	if len(chatIDs) == 0 {
+		return map[uuid.UUID]*domain.Message{}, nil
+	}
+
+	query := `
+		SELECT DISTINCT ON (chat_id) id, chat_id, sender_id, message, attachment_file_id, created_at, read_at
+		FROM messages
+		WHERE chat_id = ANY($1)
+		ORDER BY chat_id, created_at DESC
+	`
+
+	rows, err := r.db.QueryxContext(ctx, query, pq.Array(chatIDs))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get last messages: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[uuid.UUID]*domain.Message)
+	for rows.Next() {
+		m := &domain.Message{}
+		if err := rows.Scan(
+			&m.ID, &m.ChatID, &m.SenderID, &m.Message,
+			&m.AttachmentFileID, &m.CreatedAt, &m.ReadAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan last message row: %w", err)
+		}
+		result[m.ChatID] = m
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating last messages: %w", err)
+	}
+
+	return result, nil
+}
+
+// GetUnreadCounts fetches unread message counts for multiple chat IDs
+// in a single query, avoiding N+1 round-trips.
+func (r *MessageRepo) GetUnreadCounts(ctx context.Context, chatIDs []uuid.UUID, userID uuid.UUID) (map[uuid.UUID]int, error) {
+	if len(chatIDs) == 0 {
+		return map[uuid.UUID]int{}, nil
+	}
+
+	query := `
+		SELECT chat_id, COUNT(*)
+		FROM messages
+		WHERE chat_id = ANY($1)
+		  AND sender_id != $2
+		  AND read_at IS NULL
+		GROUP BY chat_id
+	`
+
+	rows, err := r.db.QueryxContext(ctx, query, pq.Array(chatIDs), userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get unread counts: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[uuid.UUID]int)
+	for rows.Next() {
+		var chatID uuid.UUID
+		var count int
+		if err := rows.Scan(&chatID, &count); err != nil {
+			return nil, fmt.Errorf("failed to scan unread count row: %w", err)
+		}
+		result[chatID] = count
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating unread counts: %w", err)
+	}
+
+	return result, nil
 }

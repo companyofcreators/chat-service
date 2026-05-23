@@ -119,6 +119,7 @@ func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 		markReadUC,
 		jwtPubKey,
 		logger,
+		cfg.AllowedOrigin,
 	)
 
 	// Wire the hub's OnMessage callback to the WS handler.

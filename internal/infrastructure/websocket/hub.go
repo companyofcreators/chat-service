@@ -364,14 +364,22 @@ func (c *Client) WritePump(logger *slog.Logger) {
 
 // MarshalPong creates a pong message.
 func MarshalPong() []byte {
-	data, _ := json.Marshal(map[string]string{"type": "pong"})
+	data, err := json.Marshal(map[string]string{"type": "pong"})
+	if err != nil {
+		slog.Error("failed to marshal pong message", "error", err)
+		return []byte(`{"type":"pong"}`)
+	}
 	return data
 }
 
 func marshalError(msg string) []byte {
-	data, _ := json.Marshal(map[string]string{
+	data, err := json.Marshal(map[string]string{
 		"type":    "error",
 		"message": msg,
 	})
+	if err != nil {
+		slog.Error("failed to marshal error message", "error", err)
+		return []byte(`{"type":"error","message":"` + msg + `"}`)
+	}
 	return data
 }

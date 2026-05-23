@@ -11,6 +11,7 @@ import (
 	"github.com/companyofcreators/chat-service/internal/app"
 	"github.com/companyofcreators/chat-service/internal/config"
 	httpInterface "github.com/companyofcreators/chat-service/internal/interfaces/http"
+	"github.com/companyofcreators/chat-service/pkg/header_auth"
 )
 
 func main() {
@@ -33,9 +34,11 @@ func main() {
 	logger := container.Logger
 
 	// Build router.
+	headerSigner := header_auth.NewHeaderSigner(cfg.HeaderHMACKey)
 	router := httpInterface.NewRouter(
 		container.HTTPHandler,
 		container.WSHandler.Upgrade,
+		headerSigner,
 		logger,
 	)
 

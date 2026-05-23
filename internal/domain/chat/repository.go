@@ -20,4 +20,7 @@ type MessageRepository interface {
 	MarkAsRead(ctx context.Context, chatID, userID uuid.UUID) error
 	GetUnreadCount(ctx context.Context, chatID, userID uuid.UUID) (int, error)
 	GetLastMessage(ctx context.Context, chatID uuid.UUID) (*Message, error)
+	// Batch queries to avoid N+1 when listing chats with previews.
+	GetLastMessages(ctx context.Context, chatIDs []uuid.UUID) (map[uuid.UUID]*Message, error)
+	GetUnreadCounts(ctx context.Context, chatIDs []uuid.UUID, userID uuid.UUID) (map[uuid.UUID]int, error)
 }

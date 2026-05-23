@@ -21,12 +21,13 @@ import (
 
 // Handler manages WebSocket connections and routes incoming messages.
 type Handler struct {
-	hub          *wsinfra.Hub
-	pubsub       *redisInfra.PubSub
-	sendMessage  *appChat.SendMessageUseCase
-	markRead     *appChat.MarkReadUseCase
-	jwtPublicKey *rsa.PublicKey
-	logger       *slog.Logger
+	hub           *wsinfra.Hub
+	pubsub        *redisInfra.PubSub
+	sendMessage   *appChat.SendMessageUseCase
+	markRead      *appChat.MarkReadUseCase
+	jwtPublicKey  *rsa.PublicKey
+	logger        *slog.Logger
+	allowedOrigin string
 }
 
 func NewHandler(
@@ -36,14 +37,16 @@ func NewHandler(
 	markRead *appChat.MarkReadUseCase,
 	jwtPublicKey *rsa.PublicKey,
 	logger *slog.Logger,
+	allowedOrigin string,
 ) *Handler {
 	return &Handler{
-		hub:          hub,
-		pubsub:       pubsub,
-		sendMessage:  sendMessage,
-		markRead:     markRead,
-		jwtPublicKey: jwtPublicKey,
-		logger:       logger,
+		hub:           hub,
+		pubsub:        pubsub,
+		sendMessage:   sendMessage,
+		markRead:      markRead,
+		jwtPublicKey:  jwtPublicKey,
+		logger:        logger,
+		allowedOrigin: allowedOrigin,
 	}
 }
 
@@ -64,7 +67,7 @@ func (h *Handler) Upgrade(w http.ResponseWriter, r *http.Request) {
 	}
 
 	acceptOptions := &websocket.AcceptOptions{
-		InsecureSkipVerify: true, // In production, use proper origin checking.
+		OriginPatterns: h.buildOriginPatterns(),
 	}
 
 	conn, err := websocket.Accept(w, r, acceptOptions)
@@ -73,7 +76,9 @@ func (h *Handler) Upgrade(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := wsinfra.NewClient(r.Context(), userID, conn, h.hub, h.logger)
+	// Используем context.Background() вместо r.Context(), так как
+	// r.Context() отменяется HTTP-сервером при возврате из handler'а.
+	client := wsinfra.NewClient(context.Background(), userID, conn, h.hub, h.logger)
 	h.hub.Register(client)
 
 	go client.WritePump(h.logger)
@@ -276,4 +281,14 @@ func (h *Handler) validateToken(tokenStr string) (uuid.UUID, error) {
 	}
 
 	return userID, nil
+}
+
+// buildOriginPatterns returns the list of allowed WebSocket origins.
+// Allows localhost, 127.0.0.1, and 192.168.0.103 (any port).
+func (h *Handler) buildOriginPatterns() []string {
+	if h.allowedOrigin != "" {
+		return []string{h.allowedOrigin}
+	}
+	// Allow local network origins for development
+	return []string{"localhost:*", "127.0.0.1:*", "192.168.0.103:*"}
 }

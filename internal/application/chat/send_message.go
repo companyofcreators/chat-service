@@ -44,6 +44,10 @@ func (uc *SendMessageUseCase) Execute(ctx context.Context, input SendMessageInpu
 		return nil, nil, domain.ErrEmptyMessage
 	}
 
+	if len(input.Message) > 4096 {
+		return nil, nil, fmt.Errorf("сообщение не может быть длиннее 4096 символов")
+	}
+
 	chat, err := uc.chatRepo.FindByID(ctx, input.ChatID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find chat: %w", err)
