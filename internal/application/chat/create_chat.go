@@ -14,7 +14,6 @@ type CreateChatInput struct {
 	OrderID    uuid.UUID
 	CustomerID uuid.UUID
 	MasterID   uuid.UUID
-	OrderTitle string
 }
 
 type CreateChatUseCase struct {
@@ -46,7 +45,6 @@ func (uc *CreateChatUseCase) Execute(ctx context.Context, input CreateChatInput)
 		OrderID:    input.OrderID,
 		CustomerID: input.CustomerID,
 		MasterID:   input.MasterID,
-		OrderTitle: input.OrderTitle,
 		CreatedAt:  time.Now().UTC(),
 	}
 

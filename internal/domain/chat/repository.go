@@ -10,7 +10,7 @@ type ChatRepository interface {
 	Create(ctx context.Context, c *Chat) error
 	FindByID(ctx context.Context, id uuid.UUID) (*Chat, error)
 	FindByOrder(ctx context.Context, orderID uuid.UUID) (*Chat, error)
-	ListByUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*Chat, int, error)
+	ListByUser(ctx context.Context, userID uuid.UUID, orderID *uuid.UUID, limit, offset int) ([]*Chat, int, error)
 	FindByOrderAndUsers(ctx context.Context, orderID, customerID, masterID uuid.UUID) (*Chat, error)
 }
 

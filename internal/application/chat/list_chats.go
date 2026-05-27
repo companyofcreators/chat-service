@@ -11,6 +11,7 @@ import (
 
 type ListChatsInput struct {
 	UserID uuid.UUID
+	OrderID *uuid.UUID
 	Limit  int
 	Offset int
 }
@@ -40,7 +41,7 @@ func (uc *ListChatsUseCase) Execute(ctx context.Context, input ListChatsInput) (
 		input.Limit = 20
 	}
 
-	chats, total, err := uc.chatRepo.ListByUser(ctx, input.UserID, input.Limit, input.Offset)
+	chats, total, err := uc.chatRepo.ListByUser(ctx, input.UserID, input.OrderID, input.Limit, input.Offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list chats: %w", err)
 	}

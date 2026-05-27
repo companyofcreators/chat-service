@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"github.com/google/uuid"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
@@ -89,7 +90,6 @@ func (h *Handler) CreateChat(w http.ResponseWriter, r *http.Request) {
 		OrderID:    orderID,
 		CustomerID: customerID,
 		MasterID:   masterID,
-		OrderTitle: req.OrderTitle,
 	}
 
 	chat, err := h.createChat.Execute(r.Context(), input)
@@ -144,10 +144,20 @@ func (h *Handler) ListChats(w http.ResponseWriter, r *http.Request) {
 
 	limit, offset := parsePagination(r)
 
+	orderIDStr := r.URL.Query().Get("order_id")
+	var orderID *uuid.UUID
+	if orderIDStr != "" {
+		id, err := uuid.Parse(orderIDStr)
+		if err == nil {
+			orderID = &id
+		}
+	}
+
 	input := appChat.ListChatsInput{
-		UserID: userID,
-		Limit:  limit,
-		Offset: offset,
+		UserID:  userID,
+		OrderID: orderID,
+		Limit:   limit,
+		Offset:  offset,
 	}
 
 	output, err := h.listChats.Execute(r.Context(), input)

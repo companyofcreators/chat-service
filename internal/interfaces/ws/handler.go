@@ -67,7 +67,7 @@ func (h *Handler) Upgrade(w http.ResponseWriter, r *http.Request) {
 	}
 
 	acceptOptions := &websocket.AcceptOptions{
-		OriginPatterns: h.buildOriginPatterns(),
+		InsecureSkipVerify: true, // JWT handles auth, any origin allowed
 	}
 
 	conn, err := websocket.Accept(w, r, acceptOptions)
@@ -290,5 +290,6 @@ func (h *Handler) buildOriginPatterns() []string {
 		return []string{h.allowedOrigin}
 	}
 	// Allow local network origins for development
-	return []string{"localhost:*", "127.0.0.1:*", "192.168.0.103:*"}
+	// Allow all local network origins for development
+	return []string{"localhost:*", "127.0.0.1:*", "192.168.0.*"}
 }

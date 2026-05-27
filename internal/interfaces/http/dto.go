@@ -14,7 +14,6 @@ type CreateChatRequest struct {
 	OrderID    string `json:"order_id"`
 	CustomerID string `json:"customer_id"`
 	MasterID   string `json:"master_id"`
-	OrderTitle string `json:"order_title"`
 }
 
 type SendMessageRequest struct {
@@ -31,7 +30,6 @@ type MarkReadRequest struct {
 type ChatResponse struct {
 	ID         string `json:"id"`
 	OrderID    string `json:"order_id"`
-	OrderTitle string `json:"order_title"`
 	CustomerID string `json:"customer_id"`
 	MasterID   string `json:"master_id"`
 	CreatedAt  string `json:"created_at"`
@@ -75,7 +73,6 @@ func toChatResponse(c *domain.Chat) ChatResponse {
 	return ChatResponse{
 		ID:         c.ID.String(),
 		OrderID:    c.OrderID.String(),
-		OrderTitle: c.OrderTitle,
 		CustomerID: c.CustomerID.String(),
 		MasterID:   c.MasterID.String(),
 		CreatedAt:  c.CreatedAt.Format(time.RFC3339),

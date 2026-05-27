@@ -11,7 +11,6 @@ type Chat struct {
 	OrderID    uuid.UUID
 	CustomerID uuid.UUID
 	MasterID   uuid.UUID
-	OrderTitle string
 	CreatedAt  time.Time
 }
 

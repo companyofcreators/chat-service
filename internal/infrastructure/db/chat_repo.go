@@ -24,12 +24,12 @@ func NewChatRepo(db *sqlx.DB) *ChatRepo {
 
 func (r *ChatRepo) Create(ctx context.Context, c *domain.Chat) error {
 	const query = `
-		INSERT INTO chats (id, order_id, customer_id, master_id, order_title, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO chats (id, order_id, customer_id, master_id, created_at)
+		VALUES ($1, $2, $3, $4, $5)
 	`
 
 	_, err := r.db.ExecContext(ctx, query,
-		c.ID, c.OrderID, c.CustomerID, c.MasterID, c.OrderTitle, c.CreatedAt,
+		c.ID, c.OrderID, c.CustomerID, c.MasterID, c.CreatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to insert chat: %w", err)
@@ -40,14 +40,14 @@ func (r *ChatRepo) Create(ctx context.Context, c *domain.Chat) error {
 
 func (r *ChatRepo) FindByID(ctx context.Context, id uuid.UUID) (*domain.Chat, error) {
 	const query = `
-		SELECT id, order_id, customer_id, master_id, COALESCE(order_title, ''), created_at
+		SELECT id, order_id, customer_id, master_id, created_at
 		FROM chats
 		WHERE id = $1
 	`
 
 	c := &domain.Chat{}
 	err := r.db.QueryRowxContext(ctx, query, id).Scan(
-		&c.ID, &c.OrderID, &c.CustomerID, &c.MasterID, &c.OrderTitle, &c.CreatedAt,
+		&c.ID, &c.OrderID, &c.CustomerID, &c.MasterID, &c.CreatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -61,14 +61,14 @@ func (r *ChatRepo) FindByID(ctx context.Context, id uuid.UUID) (*domain.Chat, er
 
 func (r *ChatRepo) FindByOrder(ctx context.Context, orderID uuid.UUID) (*domain.Chat, error) {
 	const query = `
-		SELECT id, order_id, customer_id, master_id, COALESCE(order_title, ''), created_at
+		SELECT id, order_id, customer_id, master_id, created_at
 		FROM chats
 		WHERE order_id = $1
 	`
 
 	c := &domain.Chat{}
 	err := r.db.QueryRowxContext(ctx, query, orderID).Scan(
-		&c.ID, &c.OrderID, &c.CustomerID, &c.MasterID, &c.OrderTitle, &c.CreatedAt,
+		&c.ID, &c.OrderID, &c.CustomerID, &c.MasterID, &c.CreatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -80,27 +80,26 @@ func (r *ChatRepo) FindByOrder(ctx context.Context, orderID uuid.UUID) (*domain.
 	return c, nil
 }
 
-func (r *ChatRepo) ListByUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*domain.Chat, int, error) {
-	const countQuery = `
-		SELECT COUNT(*) FROM chats
-		WHERE customer_id = $1 OR master_id = $1
-	`
+func (r *ChatRepo) ListByUser(ctx context.Context, userID uuid.UUID, orderID *uuid.UUID, limit, offset int) ([]*domain.Chat, int, error) {
+	orderFilter := ""
+	args := []interface{}{userID}
+	if orderID != nil {
+		orderFilter = " AND order_id = $2"
+		args = append(args, *orderID)
+	}
+
+	countQuery := `SELECT COUNT(*) FROM chats WHERE (customer_id = $1 OR master_id = $1)` + orderFilter
 
 	var total int
-	err := r.db.QueryRowxContext(ctx, countQuery, userID).Scan(&total)
+	err := r.db.QueryRowxContext(ctx, countQuery, args...).Scan(&total)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count chats: %w", err)
 	}
 
-	const listQuery = `
-		SELECT id, order_id, customer_id, master_id, COALESCE(order_title, ''), created_at
-		FROM chats
-		WHERE customer_id = $1 OR master_id = $1
-		ORDER BY created_at DESC
-		LIMIT $2 OFFSET $3
-	`
+	listQuery := `SELECT id, order_id, customer_id, master_id, created_at FROM chats WHERE (customer_id = $1 OR master_id = $1)` + orderFilter + ` ORDER BY created_at DESC LIMIT $` + fmt.Sprintf("%d", len(args)+1) + ` OFFSET $` + fmt.Sprintf("%d", len(args)+2)
 
-	rows, err := r.db.QueryxContext(ctx, listQuery, userID, limit, offset)
+	allArgs := append(args, limit, offset)
+	rows, err := r.db.QueryxContext(ctx, listQuery, allArgs...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to list chats: %w", err)
 	}
@@ -109,7 +108,7 @@ func (r *ChatRepo) ListByUser(ctx context.Context, userID uuid.UUID, limit, offs
 	var chats []*domain.Chat
 	for rows.Next() {
 		c := &domain.Chat{}
-		if err := rows.Scan(&c.ID, &c.OrderID, &c.CustomerID, &c.MasterID, &c.OrderTitle, &c.CreatedAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.OrderID, &c.CustomerID, &c.MasterID, &c.CreatedAt); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan chat row: %w", err)
 		}
 		chats = append(chats, c)
@@ -124,14 +123,14 @@ func (r *ChatRepo) ListByUser(ctx context.Context, userID uuid.UUID, limit, offs
 
 func (r *ChatRepo) FindByOrderAndUsers(ctx context.Context, orderID, customerID, masterID uuid.UUID) (*domain.Chat, error) {
 	const query = `
-		SELECT id, order_id, customer_id, master_id, COALESCE(order_title, ''), created_at
+		SELECT id, order_id, customer_id, master_id, created_at
 		FROM chats
 		WHERE order_id = $1 AND customer_id = $2 AND master_id = $3
 	`
 
 	c := &domain.Chat{}
 	err := r.db.QueryRowxContext(ctx, query, orderID, customerID, masterID).Scan(
-		&c.ID, &c.OrderID, &c.CustomerID, &c.MasterID, &c.OrderTitle, &c.CreatedAt,
+		&c.ID, &c.OrderID, &c.CustomerID, &c.MasterID, &c.CreatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
